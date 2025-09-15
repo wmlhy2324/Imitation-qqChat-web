@@ -54,7 +54,9 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@import "@/styles/variables.scss";`
+        api: 'modern-compiler', // 使用现代编译器API
+        silenceDeprecations: ["legacy-js-api", "import"], // 抑制废弃警告
+        additionalData: `@use "@/styles/variables.scss" as *;`
       }
     }
   },
