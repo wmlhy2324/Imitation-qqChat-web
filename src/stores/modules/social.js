@@ -38,7 +38,8 @@ export const useSocialStore = defineStore('social', () => {
   const loadFriendRequests = async () => {
     try {
       const response = await socialApi.getFriendRequests()
-      friendRequests.value = response.data
+      // 正确提取好友请求列表
+      friendRequests.value = response.data?.list || []
     } catch (error) {
       console.error('加载好友请求失败:', error)
     }
@@ -46,27 +47,58 @@ export const useSocialStore = defineStore('social', () => {
 
   const sendFriendRequest = async (userId, message) => {
     try {
-      const response = await socialApi.sendFriendRequest({ userId, message })
+      console.log('Social Store: 准备发送好友请求', { userId, message })
+      
+      const requestData = { 
+        userId, 
+        reqMsg: message 
+      }
+      console.log('Social Store: 请求数据', requestData)
+      
+      const response = await socialApi.sendFriendRequest(requestData)
+      console.log('Social Store: API响应', response)
+      
       return { success: true, data: response.data }
     } catch (error) {
-      console.error('发送好友请求失败:', error)
+      console.error('Social Store: 发送好友请求失败', {
+        error,
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        url: error.config?.url,
+        method: error.config?.method,
+        requestData: error.config?.data
+      })
+      
+      // 显示具体的后端错误信息
+      if (error.response?.data) {
+        console.error('后端返回的错误详情:', error.response.data)
+        // 使用后端返回的具体错误信息
+        const backendMsg = error.response.data.msg || error.response.data.message
+        if (backendMsg) {
+          return { success: false, message: backendMsg }
+        }
+      }
       return { success: false, message: error.message }
     }
   }
 
   const handleFriendRequest = async (requestId, action, replyMessage) => {
     try {
+      // 将action转换为后端需要的格式
+      // 1: 待处理, 2: 同意, 3: 拒绝
+      const handleResult = action === 'accept' ? 2 : 3
+      
       const response = await socialApi.handleFriendRequest({
-        requestId,
-        action, // 'accept' | 'reject'
-        replyMessage
+        friendReqId: requestId,
+        handleResult
       })
       
       // 更新本地请求状态
       const requestIndex = friendRequests.value.findIndex(req => req.id === requestId)
       if (requestIndex >= 0) {
-        friendRequests.value[requestIndex].handleResult = action === 'accept' ? 1 : 2
-        friendRequests.value[requestIndex].handleMsg = replyMessage
+        friendRequests.value[requestIndex].handle_result = handleResult
+        friendRequests.value[requestIndex].handle_msg = replyMessage || ''
       }
       
       // 如果接受请求，重新加载好友列表
@@ -130,7 +162,9 @@ export const useSocialStore = defineStore('social', () => {
 
   const searchUsers = async (keyword) => {
     try {
-      const response = await socialApi.searchUsers(keyword)
+      // 使用userApi搜索用户
+      const { userApi } = await import('@/api')
+      const response = await userApi.searchUsers(keyword)
       return { success: true, data: response.data }
     } catch (error) {
       console.error('搜索用户失败:', error)

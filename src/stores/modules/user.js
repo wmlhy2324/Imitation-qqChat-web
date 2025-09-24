@@ -20,7 +20,18 @@ export const useUserStore = defineStore('user', () => {
     try {
       isLoading.value = true
       const response = await userApi.login(credentials)
+      
+      // 检查响应数据结构
+      if (!response.data) {
+        return { success: false, message: '登录响应数据异常' }
+      }
+      
       const { token: newToken, expire, user: newUserInfo } = response.data
+      
+      // 验证关键数据
+      if (!newToken || !newUserInfo) {
+        return { success: false, message: '登录数据获取失败' }
+      }
       
       // 保存token和用户信息
       token.value = newToken
@@ -91,9 +102,18 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const initUserState = async () => {
-    if (token.value) {
-      await fetchUserInfo()
+    if (token.value && !userInfo.value) {
+      try {
+        await fetchUserInfo()
+        return true
+      } catch (error) {
+        console.error('初始化用户状态失败:', error)
+        // 如果获取用户信息失败，清除无效的token
+        logout()
+        return false
+      }
     }
+    return !!userInfo.value
   }
 
   return {

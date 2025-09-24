@@ -7,26 +7,55 @@ export const socialApi = {
     return request.get('/v1/social/friends', { params })
   },
 
-  // 搜索用户
+  // 搜索用户 - 后端实现在social服务中
   searchUsers: (keyword) => {
+    return request.get('/v1/social/user/search', {
+      params: { keyword }
+    })
+  },
+
+  // 搜索群组
+  searchGroups: (keyword) => {
+    return request.get('/v1/social/group/search', {
+      params: { keyword }
+    })
+  },
+
+  // 综合搜索好友和群组
+  searchAll: (keyword) => {
     return request.get('/v1/social/search', {
       params: { keyword }
     })
   },
 
-  // 发送好友请求
+  // 发送好友申请 - 匹配后端接口
   sendFriendRequest: (requestData) => {
-    return request.post('/v1/social/friend-requests', requestData)
+    const payload = {
+      user_uid: requestData.userId,
+      req_msg: requestData.reqMsg || requestData.message,
+      req_time: Date.now()
+    }
+    console.log('Social API: 发送请求到', '/v1/social/friend/putIn', '数据:', payload)
+    
+    return request.post('/v1/social/friend/putIn', payload)
   },
 
-  // 获取好友请求列表
+  // 获取好友申请列表
   getFriendRequests: () => {
-    return request.get('/v1/social/friend-requests')
+    return request.get('/v1/social/friend/putIns')
   },
 
-  // 处理好友请求
+  // 处理好友申请 - 匹配后端接口
   handleFriendRequest: (requestData) => {
-    return request.put('/v1/social/friend-requests', requestData)
+    return request.put('/v1/social/friend/putIn', {
+      friend_req_id: requestData.friendReqId,
+      handle_result: requestData.handleResult // 1-同意，2-拒绝
+    })
+  },
+
+  // 获取好友在线状态
+  getFriendsOnline: () => {
+    return request.get('/v1/social/friends/online')
   },
 
   // 删除好友
@@ -41,22 +70,22 @@ export const socialApi = {
 
   // 创建群组
   createGroup: (groupData) => {
-    return request.post('/v1/social/groups', groupData)
+    return request.post('/v1/social/group', groupData)
   },
 
   // 加入群组
   joinGroup: (groupId) => {
-    return request.post(`/v1/social/groups/${groupId}/join`)
+    return request.post(`/v1/social/group/${groupId}/join`)
   },
 
   // 退出群组
   leaveGroup: (groupId) => {
-    return request.post(`/v1/social/groups/${groupId}/leave`)
+    return request.post(`/v1/social/group/${groupId}/leave`)
   },
 
   // 获取群组成员
   getGroupMembers: (groupId) => {
-    return request.get(`/v1/social/groups/${groupId}/members`)
+    return request.get(`/v1/social/group/${groupId}/members`)
   },
 
   // 邀请用户加入群组

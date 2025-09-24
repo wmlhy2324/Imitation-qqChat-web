@@ -42,13 +42,14 @@ request.interceptors.response.use(
       if (data.code === 0 || data.code === 200) {
         return {
           data: data.data,
-          message: data.message,
+          message: data.msg || data.message,
           code: data.code
         }
       } else {
-        // 业务错误
-        ElMessage.error(data.message || '请求失败')
-        return Promise.reject(new Error(data.message || '请求失败'))
+        // 业务错误 - 兼容后端的 msg 字段
+        const errorMsg = data.msg || data.message || '请求失败'
+        ElMessage.error(errorMsg)
+        return Promise.reject(new Error(errorMsg))
       }
     }
     

@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch, toRefs } from 'vue'
+import { reactive, ref, watch, toRefs, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ChatDotSquare, Phone, Lock, WarningFilled } from '@element-plus/icons-vue'
@@ -133,8 +133,12 @@ const handleLogin = async () => {
     
     if (result.success) {
       ElMessage.success('登录成功')
-      // 跳转到聊天页面
-      router.push('/chat')
+      
+      // 等待下一个tick确保状态更新完成
+      await nextTick()
+      
+      // 使用Vue Router进行跳转
+      router.replace('/chat')
     } else {
       errorMessage.value = result.message || '登录失败，请重试'
     }

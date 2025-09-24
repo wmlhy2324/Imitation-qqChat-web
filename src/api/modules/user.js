@@ -38,5 +38,7 @@ export const userApi = {
         'Content-Type': 'multipart/form-data'
       }
     })
-  }
+  },
+
+  // 搜索用户功能已移至social.js中实现
 }

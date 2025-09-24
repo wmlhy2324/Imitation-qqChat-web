@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch, toRefs } from 'vue'
+import { reactive, ref, watch, toRefs, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ChatDotSquare, Phone, Lock, User, Male, Female, WarningFilled } from '@element-plus/icons-vue'
@@ -205,8 +205,10 @@ const handleRegister = async () => {
     
     if (result.success) {
       ElMessage.success('注册成功！正在为您登录...')
-      // 注册成功后自动跳转到聊天页面
-      router.push('/chat')
+      // 强制跳转，避免路由守卫干扰
+      await nextTick()
+      // 使用window.location强制跳转
+      window.location.href = '/chat'
     } else {
       errorMessage.value = result.message || '注册失败，请重试'
     }

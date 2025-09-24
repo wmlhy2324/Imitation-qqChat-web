@@ -66,11 +66,25 @@ export default defineConfig({
     open: true,
     cors: true,
     proxy: {
-      '/api': {
+      // 用户服务API代理
+      '/api/v1/user': {
         target: 'http://localhost:8888',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       },
+      // 社交服务API代理
+      '/api/v1/social': {
+        target: 'http://localhost:8881',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      // IM服务API代理
+      '/api/v1/im': {
+        target: 'http://localhost:8882',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      // WebSocket代理
       '/ws': {
         target: 'ws://localhost:9001',
         ws: true,

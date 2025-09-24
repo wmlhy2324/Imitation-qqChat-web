@@ -8,24 +8,15 @@ export default [
       title: '聊天',
       requiresAuth: true,
       keepAlive: true
-    },
-    children: [
-      {
-        path: '',
-        name: 'ChatHome',
-        component: () => import('@/views/Chat/ChatHome.vue'),
-        meta: {
-          title: '聊天首页'
-        }
-      },
-      {
-        path: 'conversation/:id',
-        name: 'ChatConversation',
-        component: () => import('@/views/Chat/ChatConversation.vue'),
-        meta: {
-          title: '对话'
-        }
-      }
-    ]
+    }
+  },
+  {
+    path: '/chat-welcome',
+    name: 'ChatWelcome',
+    component: () => import('@/views/Chat/ChatHome.vue'),
+    meta: {
+      title: '聊天欢迎页',
+      requiresAuth: true
+    }
   }
 ]

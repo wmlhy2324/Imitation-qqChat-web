@@ -1,6 +1,5 @@
 import { io } from 'socket.io-client'
 import { ElMessage } from 'element-plus'
-import { useChatStore, useUserStore } from '@/stores'
 
 class WebSocketManager {
   constructor() {
@@ -11,12 +10,15 @@ class WebSocketManager {
     this.reconnectDelay = 1000
     this.heartbeatInterval = null
     this.heartbeatTimeout = 30000
+    this.userStore = null
+    this.chatStore = null
   }
 
   // 连接WebSocket
-  connect() {
-    const userStore = useUserStore()
-    const chatStore = useChatStore()
+  connect(userStore, chatStore) {
+    // 保存store引用
+    this.userStore = userStore
+    this.chatStore = chatStore
     
     if (!userStore.token) {
       console.warn('未找到认证token，无法连接WebSocket')
@@ -26,7 +28,7 @@ class WebSocketManager {
     try {
       this.socket = io('/ws', {
         auth: {
-          token: userStore.token
+          token: this.userStore.token
         },
         transports: ['websocket'],
         reconnection: false // 手动处理重连
@@ -37,7 +39,7 @@ class WebSocketManager {
         console.log('WebSocket连接成功')
         this.isConnected = true
         this.reconnectAttempts = 0
-        chatStore.setConnectionStatus(true)
+        this.chatStore.setConnectionStatus(true)
         this.startHeartbeat()
         ElMessage.success('连接成功')
       })
@@ -46,7 +48,7 @@ class WebSocketManager {
       this.socket.on('connect_error', (error) => {
         console.error('WebSocket连接失败:', error)
         this.isConnected = false
-        chatStore.setConnectionStatus(false)
+        this.chatStore.setConnectionStatus(false)
         this.handleReconnect()
       })
 
@@ -54,7 +56,7 @@ class WebSocketManager {
       this.socket.on('disconnect', (reason) => {
         console.log('WebSocket连接断开:', reason)
         this.isConnected = false
-        chatStore.setConnectionStatus(false)
+        this.chatStore.setConnectionStatus(false)
         this.stopHeartbeat()
         
         if (reason !== 'io client disconnect') {
@@ -65,24 +67,24 @@ class WebSocketManager {
       // 接收新消息
       this.socket.on('new_message', (message) => {
         console.log('收到新消息:', message)
-        chatStore.addMessage(message.conversationId, message)
+        this.chatStore.addMessage(message.conversationId, message)
       })
 
       // 用户在线状态变化
       this.socket.on('user_online', (userId) => {
         console.log('用户上线:', userId)
-        chatStore.addOnlineUser(userId)
+        this.chatStore.addOnlineUser(userId)
       })
 
       this.socket.on('user_offline', (userId) => {
         console.log('用户下线:', userId)
-        chatStore.removeOnlineUser(userId)
+        this.chatStore.removeOnlineUser(userId)
       })
 
       // 在线用户列表
       this.socket.on('online_users', (users) => {
         console.log('在线用户列表:', users)
-        chatStore.setOnlineUsers(users)
+        this.chatStore.setOnlineUsers(users)
       })
 
       // 消息状态更新
@@ -111,8 +113,9 @@ class WebSocketManager {
     }
     this.isConnected = false
     this.stopHeartbeat()
-    const chatStore = useChatStore()
-    chatStore.setConnectionStatus(false)
+    if (this.chatStore) {
+      this.chatStore.setConnectionStatus(false)
+    }
   }
 
   // 发送消息
