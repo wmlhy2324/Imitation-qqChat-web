@@ -56,10 +56,10 @@
         <div class="conversation-info">
           <div class="conversation-header">
             <h4 class="conversation-title">
-              {{ conversation.title || '未知会话' }}
+              {{ conversation.name || '未知会话' }}
               <!-- 群组成员数 -->
               <span v-if="conversation.chatType === 1 && conversation.memberCount" class="member-count">
-                ({{ conversation.memberCount }})
+                ({{ conversation.memberCount }}人)
               </span>
             </h4>
             <span class="conversation-time">
@@ -235,7 +235,7 @@ const handleDelete = () => {
 }
 
 const getAvatarText = (conversation) => {
-  return conversation.title?.charAt(0) || '?'
+  return conversation.name?.charAt(0) || '?'
 }
 
 const getLastMessageText = (lastMessage) => {

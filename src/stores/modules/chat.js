@@ -41,27 +41,31 @@ export const useChatStore = defineStore('chat', () => {
       if (data.conversationList) {
         const newConversations = new Map()
         Object.entries(data.conversationList).forEach(([id, conv]) => {
-          newConversations.set(id, {
-            id: conv.conversationId || id,
-            conversationId: conv.conversationId || id,
-            chatType: conv.chatType, // 2: 私聊, 1: 群聊
-            targetId: conv.targetId,
-            isShow: conv.isShow,
-            seq: conv.seq,
-            total: conv.total,
-            unread: conv.unread,
-            lastMessage: null,
-            lastMessageTime: null,
-            // 扩展字段
-            title: '', // 会话标题，稍后从好友/群组数据中获取
-            avatar: '', // 头像
-            online: false // 是否在线（私聊）
-          })
+          // 只添加isShow为true的会话
+          if (conv.isShow) {
+            newConversations.set(id, {
+              id: conv.conversationId || id,
+              conversationId: conv.conversationId || id,
+              chatType: conv.ChatType, // 注意这里是大写的ChatType，2: 私聊, 1: 群聊
+              targetId: conv.targetId,
+              isShow: conv.isShow,
+              seq: conv.seq,
+              read: conv.read,
+              total: conv.total,
+              unread: conv.unread,
+              name: conv.name, // 会话名称
+              avatar: conv.avatar, // 头像URL
+              memberCount: conv.memberCount, // 群成员数量
+              lastMessage: null,
+              lastMessageTime: null,
+              online: false // 是否在线（私聊）
+            })
+          }
         })
         conversations.value = newConversations
         
-        // 获取会话的详细信息（标题、头像等）
-        await enrichConversationInfo()
+        // 更新在线状态（仅对私聊）
+        updateConversationsOnlineStatus()
       }
     } catch (error) {
       console.error('获取会话列表失败:', error)
@@ -315,6 +319,15 @@ export const useChatStore = defineStore('chat', () => {
       ElMessage.error('创建会话失败')
       throw error
     }
+  }
+
+  // 更新会话在线状态
+  const updateConversationsOnlineStatus = () => {
+    conversations.value.forEach(conv => {
+      if (conv.chatType === 2) { // 私聊
+        conv.online = onlineUsers.value.has(conv.targetId)
+      }
+    })
   }
 
   // WebSocket 相关方法
