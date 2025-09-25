@@ -10,10 +10,23 @@ export const chatApi = {
   // 获取聊天消息
   getMessages: (conversationId, params = {}) => {
     // 后端API接口是 /v1/im/chatlog，需要传入conversationId等参数
-    const chatlogParams = {
-      conversationId,
-      ...params
-    }
+    const chatlogParams = {}
+    
+    // 确保必需参数始终存在
+    chatlogParams.conversationId = conversationId
+    chatlogParams.startSendTime = params.startSendTime !== undefined ? params.startSendTime : 0
+    chatlogParams.endSendTime = params.endSendTime !== undefined ? params.endSendTime : 0
+    chatlogParams.count = params.count || 20
+    
+    // 添加其他参数
+    Object.keys(params).forEach(key => {
+      if (!['startSendTime', 'endSendTime', 'count'].includes(key)) {
+        chatlogParams[key] = params[key]
+      }
+    })
+    
+    console.log('API请求参数:', chatlogParams) // 调试用
+    
     return request.get('/v1/im/chatlog', { params: chatlogParams })
   },
 
@@ -41,10 +54,18 @@ export const chatApi = {
     })
   },
 
-  // 获取历史消息
-  getHistoryMessages: (conversationId, beforeTime, limit = 20) => {
-    return request.get(`/v1/im/conversations/${conversationId}/history`, {
-      params: { beforeTime, limit }
-    })
+  // 获取历史消息（分页加载更多）
+  getHistoryMessages: (conversationId, options = {}) => {
+    const params = {}
+    
+    // 确保必需参数始终存在
+    params.conversationId = conversationId
+    params.startSendTime = options.startSendTime !== undefined ? options.startSendTime : 0
+    params.endSendTime = options.endSendTime !== undefined ? options.endSendTime : (options.beforeTime || 0)
+    params.count = options.limit || options.count || 20
+    
+    console.log('历史消息API请求参数:', params) // 调试用
+    
+    return request.get('/v1/im/chatlog', { params })
   }
 }
