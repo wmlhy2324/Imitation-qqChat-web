@@ -8,7 +8,7 @@
         </el-avatar>
         <div class="info-details">
           <h3>{{ conversation.title }}</h3>
-          <span v-if="conversation.chatType === 1" class="status">
+          <span v-if="conversation.chatType === 2" class="status">
             {{ conversation.online ? '在线' : '离线' }}
           </span>
           <span v-else class="status">
@@ -80,7 +80,7 @@
             <div class="message-body">
               <!-- 发送者名称（群聊中显示） -->
               <div 
-                v-if="!message.isOwn && conversation.chatType === 2"
+                v-if="!message.isOwn && conversation.chatType === 1"
                 class="sender-name"
               >
                 {{ message.senderInfo?.nickname || '未知用户' }}

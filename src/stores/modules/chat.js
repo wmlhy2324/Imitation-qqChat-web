@@ -44,7 +44,7 @@ export const useChatStore = defineStore('chat', () => {
           newConversations.set(id, {
             id: conv.conversationId || id,
             conversationId: conv.conversationId || id,
-            chatType: conv.chatType, // 1: 私聊, 2: 群聊
+            chatType: conv.chatType, // 2: 私聊, 1: 群聊
             targetId: conv.targetId,
             isShow: conv.isShow,
             seq: conv.seq,
@@ -89,7 +89,7 @@ export const useChatStore = defineStore('chat', () => {
       
       // 更新会话信息
       conversations.value.forEach((conv, id) => {
-        if (conv.chatType === 1) {
+        if (conv.chatType === 2) {
           // 私聊
           const friend = friendsMap.get(conv.targetId)
           if (friend) {
@@ -97,7 +97,7 @@ export const useChatStore = defineStore('chat', () => {
             conv.avatar = friend.avatar || ''
             conv.online = onlineUsers.value.has(conv.targetId)
           }
-        } else if (conv.chatType === 2) {
+        } else if (conv.chatType === 1) {
           // 群聊
           const group = groupsMap.get(conv.targetId)
           if (group) {
@@ -302,14 +302,8 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   // 创建新会话
-  const createConversation = async (targetId, chatType) => {
+  const createConversation = async (conversationData) => {
     try {
-      const conversationData = {
-        sendId: '', // 后端应该从token中获取
-        recvId: targetId,
-        chatType: chatType
-      }
-      
       const response = await chatApi.createConversation(conversationData)
       
       // 刷新会话列表
@@ -333,7 +327,7 @@ export const useChatStore = defineStore('chat', () => {
     
     // 更新会话中用户的在线状态
     conversations.value.forEach(conv => {
-      if (conv.chatType === 1) { // 私聊
+      if (conv.chatType === 2) { // 私聊
         conv.online = onlineUsers.value.has(conv.targetId)
       }
     })
@@ -344,7 +338,7 @@ export const useChatStore = defineStore('chat', () => {
     
     // 更新相关会话的在线状态
     conversations.value.forEach(conv => {
-      if (conv.chatType === 1 && conv.targetId === userId) {
+      if (conv.chatType === 2 && conv.targetId === userId) {
         conv.online = true
       }
     })
@@ -355,7 +349,7 @@ export const useChatStore = defineStore('chat', () => {
     
     // 更新相关会话的在线状态
     conversations.value.forEach(conv => {
-      if (conv.chatType === 1 && conv.targetId === userId) {
+      if (conv.chatType === 2 && conv.targetId === userId) {
         conv.online = false
       }
     })
@@ -366,8 +360,8 @@ export const useChatStore = defineStore('chat', () => {
     try {
       // 检查是否已存在相同类型和目标的会话
       const existingConv = Array.from(conversations.value.values()).find(conv => 
-        conv.type === conversationData.type && 
-        conv.targetId === conversationData.targetId
+        conv.chatType === conversationData.ChatType && 
+        conv.targetId === conversationData.recvId
       )
       
       if (existingConv) {

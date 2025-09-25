@@ -40,7 +40,7 @@
           
           <!-- 在线状态指示器（仅私聊显示） -->
           <div 
-            v-if="conversation.chatType === 1 && conversation.online"
+            v-if="conversation.chatType === 2 && conversation.online"
             class="online-indicator"
           />
           
@@ -58,7 +58,7 @@
             <h4 class="conversation-title">
               {{ conversation.title || '未知会话' }}
               <!-- 群组成员数 -->
-              <span v-if="conversation.chatType === 2 && conversation.memberCount" class="member-count">
+              <span v-if="conversation.chatType === 1 && conversation.memberCount" class="member-count">
                 ({{ conversation.memberCount }})
               </span>
             </h4>

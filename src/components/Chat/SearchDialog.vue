@@ -142,6 +142,7 @@ import {
 } from '@element-plus/icons-vue'
 import { socialApi } from '@/api'
 import { useChatStore } from '@/stores'
+import { useUserStore } from '@/stores/modules/user'
 import { useRouter } from 'vue-router'
 
 // Props
@@ -157,6 +158,7 @@ const emit = defineEmits(['update:modelValue', 'select-friend', 'select-group'])
 
 const router = useRouter()
 const chatStore = useChatStore()
+const userStore = useUserStore()
 
 // 响应式数据
 const searchKeyword = ref('')
@@ -272,10 +274,9 @@ const handleSelectFriend = async (friend) => {
   try {
     // 创建或获取私聊会话
     const conversationData = {
-      type: 'private',
-      targetId: friend.id,
-      title: friend.nickname,
-      avatar: friend.avatar
+      sendId: userStore.userId || userStore.userInfo?.id, // 当前用户ID
+      recvId: friend.id,
+      ChatType: 2 // 2表示私聊
     }
     
     // 通过store创建会话
@@ -301,10 +302,9 @@ const handleSelectGroup = async (group) => {
   try {
     // 创建或获取群聊会话
     const conversationData = {
-      type: 'group',
-      targetId: group.id,
-      title: group.name,
-      avatar: group.avatar
+      sendId: userStore.userId || userStore.userInfo?.id, // 当前用户ID
+      recvId: group.id,
+      ChatType: 1 // 1表示群聊
     }
     
     // 通过store创建会话

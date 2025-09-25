@@ -179,6 +179,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 import { useSocialStore } from '@/stores'
+import { useUserStore } from '@/stores/modules/user'
 import AddFriendDialog from '@/components/Social/AddFriendDialog.vue'
 
 // Router
@@ -237,19 +238,37 @@ const handleSearchFriends = () => {
   // 按防抖处理，可以后续优化
 }
 
-const handleChatWithFriend = (friend) => {
-  // 跳转到聊天页面
-  router.push({
-    name: 'Chat',
-    params: { 
-      type: 'private',
-      id: friend.friend_uid 
-    },
-    query: {
-      name: friend.remark || friend.nickname,
-      avatar: friend.avatar
+const handleChatWithFriend = async (friend) => {
+  try {
+    // 先创建对话框
+    const { chatApi } = await import('@/api')
+    const userStore = useUserStore()
+    
+    const conversationData = {
+      sendId: userStore.userId || userStore.userInfo?.id, // 当前用户ID
+      recvId: friend.friend_uid,
+      ChatType: 2 // 2表示私聊
     }
-  })
+    
+    await chatApi.createConversation(conversationData)
+    
+    // 创建成功后跳转到聊天界面，使用ChatLayout路由
+    router.push({
+      name: 'ChatLayout',
+      query: {
+        targetId: friend.friend_uid,
+        targetName: friend.remark || friend.nickname,
+        targetAvatar: friend.avatar,
+        chatType: 2
+      }
+    })
+    
+    ElMessage.success('正在打开聊天窗口...')
+    
+  } catch (error) {
+    console.error('创建对话失败:', error)
+    ElMessage.error('创建对话失败，请稍后重试')
+  }
 }
 
 const handleEditRemark = (friend) => {

@@ -16,10 +16,10 @@
         <h2>{{ conversation.title }}</h2>
         <p class="conversation-type">
           <el-icon>
-            <component :is="conversation.chatType === 1 ? 'User' : 'UserFilled'" />
+            <component :is="conversation.chatType === 2 ? 'User' : 'UserFilled'" />
           </el-icon>
-          {{ conversation.chatType === 1 ? '私聊' : '群聊' }}
-          <span v-if="conversation.chatType === 2">
+          {{ conversation.chatType === 2 ? '私聊' : '群聊' }}
+          <span v-if="conversation.chatType === 1">
             ({{ conversation.memberCount || 0 }} 人)
           </span>
         </p>
@@ -46,7 +46,7 @@
       </div>
 
       <!-- 群聊成员列表 -->
-      <div v-if="conversation.chatType === 2" class="group-members">
+      <div v-if="conversation.chatType === 1" class="group-members">
         <div class="section-header">
           <h4>群成员 ({{ groupMembers.length }})</h4>
           <el-button size="small" text @click="handleInviteMembers">
@@ -185,6 +185,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 import { useChatStore } from '@/stores/modules/chat'
+import { useUserStore } from '@/stores/modules/user'
 import { socialApi } from '@/api'
 
 // Props
@@ -200,6 +201,7 @@ const emit = defineEmits(['close', 'add-friend', 'create-group'])
 
 // Store
 const chatStore = useChatStore()
+const userStore = useUserStore()
 
 // 响应式数据
 const searchKeyword = ref('')
@@ -238,8 +240,13 @@ const filteredGroups = computed(() => {
 const handleContactClick = async (contact) => {
   try {
     // 创建或打开会话
-    const chatType = contact.memberCount !== undefined ? 2 : 1 // 群组或私聊
-    await chatStore.createConversation(contact.id, chatType)
+    const chatType = contact.memberCount !== undefined ? 1 : 2 // 群组或私聊
+    const conversationData = {
+      sendId: userStore.userId || userStore.userInfo?.id, // 当前用户ID
+      recvId: contact.id,
+      ChatType: chatType
+    }
+    await chatStore.createConversation(conversationData)
     
     // 关闭联系人面板
     emit('close')
@@ -317,7 +324,7 @@ const loadGroupMembers = async () => {
 watch(
   () => props.conversation,
   (newConversation) => {
-    if (newConversation && newConversation.chatType === 2) {
+    if (newConversation && newConversation.chatType === 1) {
       loadGroupMembers()
     }
     
@@ -332,7 +339,7 @@ watch(
 
 // 生命周期
 onMounted(() => {
-  if (props.conversation && props.conversation.chatType === 2) {
+  if (props.conversation && props.conversation.chatType === 1) {
     loadGroupMembers()
   }
 })

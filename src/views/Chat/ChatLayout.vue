@@ -281,6 +281,45 @@ const handleSelectSearchResult = async (item, conversation) => {
   }
 }
 
+// 处理路由导航（从好友页面跳转过来）
+const handleRouteNavigation = async (queryParams) => {
+  try {
+    const { targetId, targetName, targetAvatar, chatType } = queryParams
+    
+    if (!targetId) return
+    
+    // 查找是否已存在对应的会话
+    let targetConversation = chatStore.conversationList.find(conv => 
+      conv.chatType == chatType && conv.targetId === targetId
+    )
+    
+    if (!targetConversation) {
+      // 如果没找到会话，等待一段时间后再次加载（因为可能刚创建）
+      await new Promise(resolve => setTimeout(resolve, 500))
+      await chatStore.fetchConversations()
+      
+      // 再次查找
+      targetConversation = chatStore.conversationList.find(conv => 
+        conv.chatType == chatType && conv.targetId === targetId
+      )
+    }
+    
+    if (targetConversation) {
+      // 选择该会话
+      await handleSelectConversation(targetConversation)
+      ElMessage.success(`已打开与 ${targetName} 的聊天`)
+    } else {
+      console.warn('未找到对应会话，可能创建失败')
+      ElMessage.warning('未找到聊天记录，请稍后重试')
+    }
+    
+    // 清除路由参数，避免重复处理
+    router.replace({ name: 'ChatLayout' })
+  } catch (error) {
+    console.error('处理路由导航失败:', error)
+  }
+}
+
 const handleMenuCommand = async (command) => {
   switch (command) {
     case 'profile':
@@ -326,6 +365,12 @@ onMounted(async () => {
     
     // 加载会话列表
     await chatStore.fetchConversations()
+    
+    // 检查路由参数，如果有targetId说明是从好友页面跳转过来的
+    const route = router.currentRoute.value
+    if (route.query.targetId) {
+      await handleRouteNavigation(route.query)
+    }
   } catch (error) {
     console.error('初始化聊天界面失败:', error)
     ElMessage.error('初始化失败，请刷新页面重试')

@@ -4,12 +4,17 @@ import request from '@/utils/request'
 export const chatApi = {
   // 获取会话列表
   getConversations: (params = {}) => {
-    return request.get('/v1/im/conversations', { params })
+    return request.get('/v1/im/conversation', { params })
   },
 
   // 获取聊天消息
   getMessages: (conversationId, params = {}) => {
-    return request.get(`/v1/im/conversations/${conversationId}/messages`, { params })
+    // 后端API接口是 /v1/im/chatlog，需要传入conversationId等参数
+    const chatlogParams = {
+      conversationId,
+      ...params
+    }
+    return request.get('/v1/im/chatlog', { params: chatlogParams })
   },
 
   // 发送消息
@@ -24,7 +29,7 @@ export const chatApi = {
 
   // 创建会话
   createConversation: (conversationData) => {
-    return request.post('/v1/im/conversations', conversationData)
+    return request.post('/v1/im/setup/conversation', conversationData)
   },
 
   // 上传文件
