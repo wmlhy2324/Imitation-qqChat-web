@@ -159,7 +159,7 @@ const filteredConversations = computed(() => {
   
   const keyword = searchKeyword.value.toLowerCase()
   return chatStore.conversationList.filter(conv => 
-    conv.title?.toLowerCase().includes(keyword)
+    conv.name?.toLowerCase().includes(keyword)
   )
 })
 

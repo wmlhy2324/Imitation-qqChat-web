@@ -4,15 +4,15 @@
     <div class="chat-header">
       <div class="conversation-info">
         <el-avatar :size="40" :src="conversation.avatar">
-          {{ conversation.title?.charAt(0) }}
+          {{ conversation.name?.charAt(0) }}
         </el-avatar>
         <div class="info-details">
-          <h3>{{ conversation.title }}</h3>
+          <h3>{{ conversation.name }}</h3>
           <span v-if="conversation.chatType === 2" class="status">
             {{ conversation.online ? '在线' : '离线' }}
           </span>
-          <span v-else class="status">
-            {{ conversation.memberCount || 0 }} 名成员
+          <span v-else-if="conversation.chatType === 1" class="status">
+            群聊 · {{ conversation.memberCount || 0 }}人
           </span>
         </div>
       </div>
