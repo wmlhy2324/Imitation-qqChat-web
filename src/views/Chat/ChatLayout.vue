@@ -218,17 +218,40 @@ const handleSendMessage = async (messageData) => {
         id: userStore.userId,
         nickname: userStore.nickname,
         avatar: userStore.avatar
-      }
+      },
+      contentParsed: messageData.content || messageData.msgContent
     }
     
     chatStore.addMessage(messageData.conversationId, tempMessage)
     
+    // 获取当前会话信息以确定recvId和chatType
+    const currentConv = chatStore.currentConversation
+    if (!currentConv) {
+      ElMessage.error('请先选择会话')
+      return
+    }
+    
+    // 构建WebSocket消息数据
+    const wsMessageData = {
+      conversationId: messageData.conversationId,
+      recvId: currentConv.targetId,
+      chatType: currentConv.chatType,
+      content: messageData.content || messageData.msgContent,
+      msgType: 1 // 文本消息
+    }
+    
+    console.log('发送WebSocket消息:', wsMessageData)
+    
     // 通过WebSocket发送消息
-    const success = wsManager.sendMessage(messageData)
+    const success = wsManager.sendMessage(wsMessageData)
     
     if (!success) {
-      // WebSocket发送失败，尝试HTTP API
-      await chatStore.sendMessage(messageData)
+      // WebSocket发送失败，更新消息状态
+      tempMessage.status = 'failed'
+      ElMessage.error('消息发送失败，请检查网络连接')
+    } else {
+      // 发送成功，更新消息状态
+      tempMessage.status = 'sent'
     }
   } catch (error) {
     console.error('发送消息失败:', error)

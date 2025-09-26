@@ -223,11 +223,19 @@ export const useChatStore = defineStore('chat', () => {
     })
   }
 
-  // 发送消息
+  // 发送消息（通过WebSocket）
   const sendMessage = async (messageData) => {
     try {
-      const response = await chatApi.sendMessage(messageData)
-      return response.data
+      // 注意：实际发送由WebSocket管理器处理
+      // 这里只是为了保持接口兼容性
+      console.log('Chat Store: 发送消息请求', messageData)
+      
+      // 实际发送应该通过 wsManager.sendMessage() 完成
+      // 这个方法主要用于兼容现有代码
+      return {
+        success: true,
+        message: '消息发送请求已提交'
+      }
     } catch (error) {
       console.error('发送消息失败:', error)
       ElMessage.error('发送消息失败')
