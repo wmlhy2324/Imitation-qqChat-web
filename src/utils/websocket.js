@@ -162,6 +162,23 @@ class WebSocketManager {
   handleNewMessage(data) {
     console.log('收到新消息推送:', data)
     
+    // 判断是否是自己发送的消息
+    const isOwnMessage = data.sendId === this.userStore?.userId
+    
+    // 获取发送者信息
+    let senderInfo = null
+    if (isOwnMessage) {
+      // 自己发送的消息
+      senderInfo = {
+        id: this.userStore.userId,
+        nickname: this.userStore.nickname,
+        avatar: this.userStore.avatar
+      }
+    } else {
+      // 其他人发送的消息，从好友列表或群成员中查找
+      senderInfo = this.getSenderInfo(data.sendId)
+    }
+    
     // 转换为前端消息格式
     const message = {
       id: data.msgId,
@@ -173,12 +190,38 @@ class WebSocketManager {
       chatType: data.chatType,
       sendTime: data.sendTime,
       status: 'delivered',
-      isOwn: data.sendId === this.userStore?.userId,
-      contentParsed: data.content
+      isOwn: isOwnMessage,
+      contentParsed: data.content,
+      senderInfo: senderInfo
     }
+    
+    console.log('WebSocket接收消息 - 原始数据:', data)
+    console.log('WebSocket接收消息 - 处理后消息:', message)
+    console.log('WebSocket接收消息 - 是否自己发送:', isOwnMessage)
+    console.log('WebSocket接收消息 - 发送者信息:', senderInfo)
     
     // 添加到聊天记录
     this.chatStore.addMessage(data.conversationId, message)
+  }
+
+  // 获取发送者信息
+  getSenderInfo(senderId) {
+    // 从好友列表中查找
+    const friend = this.chatStore.friends.find(f => f.id === senderId)
+    if (friend) {
+      return {
+        id: friend.id,
+        nickname: friend.nickname || friend.name,
+        avatar: friend.avatar
+      }
+    }
+    
+    // 如果找不到，返回默认信息
+    return {
+      id: senderId,
+      nickname: '未知用户',
+      avatar: ''
+    }
   }
 
   // 处理ACK确认消息

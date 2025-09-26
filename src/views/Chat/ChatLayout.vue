@@ -207,10 +207,22 @@ const handleDeleteConversation = async (conversationId) => {
 
 const handleSendMessage = async (messageData) => {
   try {
+    // 获取当前会话信息以确定recvId和chatType
+    const currentConv = chatStore.currentConversation
+    if (!currentConv) {
+      ElMessage.error('请先选择会话')
+      return
+    }
+    
     // 先在界面上显示消息（乐观更新）
     const tempMessage = {
       id: `temp_${Date.now()}`,
-      ...messageData,
+      conversationId: messageData.conversationId,
+      sendId: userStore.userId,
+      recvId: currentConv.targetId,
+      msgType: 1, // 文本消息
+      msgContent: messageData.content || messageData.msgContent,
+      chatType: currentConv.chatType,
       sendTime: Date.now(),
       status: 'sending',
       isOwn: true,
@@ -222,14 +234,15 @@ const handleSendMessage = async (messageData) => {
       contentParsed: messageData.content || messageData.msgContent
     }
     
-    chatStore.addMessage(messageData.conversationId, tempMessage)
+    console.log('发送消息 - 用户信息:', {
+      userId: userStore.userId,
+      nickname: userStore.nickname,
+      avatar: userStore.avatar
+    })
+    console.log('发送消息 - 会话信息:', currentConv)
+    console.log('发送消息 - 消息对象:', tempMessage)
     
-    // 获取当前会话信息以确定recvId和chatType
-    const currentConv = chatStore.currentConversation
-    if (!currentConv) {
-      ElMessage.error('请先选择会话')
-      return
-    }
+    chatStore.addMessage(messageData.conversationId, tempMessage)
     
     // 构建WebSocket消息数据
     const wsMessageData = {
