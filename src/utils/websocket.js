@@ -34,6 +34,8 @@ class WebSocketManager {
     this.chatStore = null
     this.messageQueue = []
     this.pendingMessages = new Map() // 等待ACK确认的消息
+    this.ackMode = null // ACK模式检测: null(检测中), 'noack', 'ack'
+    this.ackDetectionCount = 0 // 用于ACK模式检测的计数器
   }
 
   // 连接WebSocket
@@ -238,6 +240,13 @@ class WebSocketManager {
     const pendingMessage = this.pendingMessages.get(message.id)
     if (pendingMessage) {
       console.log('消息ACK确认成功:', message.id)
+      
+      // 确定为ACK模式
+      if (this.ackMode === null) {
+        this.ackMode = 'ack'
+        console.log('ACK模式检测完成: ACK')
+      }
+      
       this.pendingMessages.delete(message.id)
       
       // 更新UI中对应消息的状态为已送达
@@ -300,11 +309,8 @@ class WebSocketManager {
         tempTimestamp: messageData.tempTimestamp
       })
 
-      // NoAck模式：发送成功后直接更新状态为已发送
-      // 如果是OnlyAck或RigorAck模式，会在handleAckMessage中更新为delivered
-      setTimeout(() => {
-        this.updateMessageStatus(messageId, 'sent', messageData.tempMessageId, messageData.tempTimestamp)
-      }, 100) // 延迟100ms确保消息已添加到UI
+      // 智能ACK模式处理
+      this.handleAckModeDetection(messageId, messageData)
 
       return true
     } catch (error) {
@@ -427,25 +433,67 @@ class WebSocketManager {
     }
   }
 
+  // 智能ACK模式检测和处理
+  handleAckModeDetection(messageId, messageData) {
+    if (this.ackMode === 'noack') {
+      // 已确定为NoAck模式，直接更新状态
+      setTimeout(() => {
+        this.updateMessageStatus(messageId, 'sent', messageData.tempMessageId, messageData.tempTimestamp)
+      }, 100)
+      return
+    }
+
+    if (this.ackMode === 'ack') {
+      // 已确定为ACK模式，等待ACK响应
+      return
+    }
+
+    // 检测模式中
+    this.ackDetectionCount++
+    
+    if (this.ackDetectionCount <= 3) {
+      // 前3条消息用于检测ACK模式
+      setTimeout(() => {
+        if (this.pendingMessages.has(messageId)) {
+          // 500ms内没收到ACK，可能是NoAck模式
+          console.log('ACK检测: 可能为NoAck模式，更新状态为sent')
+          this.updateMessageStatus(messageId, 'sent', messageData.tempMessageId, messageData.tempTimestamp)
+          
+          // 如果前3条消息都没收到ACK，判定为NoAck模式
+          if (this.ackDetectionCount === 3) {
+            this.ackMode = 'noack'
+            console.log('ACK模式检测完成: NoAck')
+          }
+        }
+      }, 500) // 等待500ms检测ACK
+    } else {
+      // 已检测完成，按当前模式处理
+      if (this.ackMode === 'noack') {
+        setTimeout(() => {
+          this.updateMessageStatus(messageId, 'sent', messageData.tempMessageId, messageData.tempTimestamp)
+        }, 100)
+      }
+    }
+  }
+
   // 更新消息状态
   updateMessageStatus(messageId, status, tempMessageId = null, tempTimestamp = null) {
-    if (!this.chatStore) return
+    if (!this.chatStore || !this.chatStore.messages) return
     
-    // 查找并更新消息状态
-    const conversations = this.chatStore.conversations
-    for (const [conversationId, conversation] of conversations) {
-      const messages = conversation.messages || []
+    // 查找并更新消息状态 - 正确访问messages Map
+    for (const [conversationId, messagesList] of this.chatStore.messages) {
+      if (!messagesList || !Array.isArray(messagesList)) continue
       
       let messageIndex = -1
       
       // 优先通过临时消息ID精确匹配
       if (tempMessageId) {
-        messageIndex = messages.findIndex(msg => msg.id === tempMessageId)
+        messageIndex = messagesList.findIndex(msg => msg.id === tempMessageId)
       }
       
       // 如果没找到，尝试通过时间戳匹配
       if (messageIndex === -1 && tempTimestamp) {
-        messageIndex = messages.findIndex(msg => 
+        messageIndex = messagesList.findIndex(msg => 
           msg.id.startsWith('temp_') && 
           Math.abs(msg.sendTime - tempTimestamp) < 1000 // 1秒内的消息
         )
@@ -453,22 +501,22 @@ class WebSocketManager {
       
       // 最后尝试通过WebSocket消息ID匹配（用于ACK场景）
       if (messageIndex === -1) {
-        messageIndex = messages.findIndex(msg => msg.id === messageId)
+        messageIndex = messagesList.findIndex(msg => msg.id === messageId)
       }
       
       if (messageIndex !== -1) {
-        messages[messageIndex].status = status
-        console.log(`消息状态更新: ${tempMessageId || messageId} -> ${status}`)
+        const oldMessage = messagesList[messageIndex]
+        const updatedMessage = { ...oldMessage, status }
         
         // 触发Vue响应式更新
-        if (conversation.messages) {
-          conversation.messages.splice(messageIndex, 1, { ...messages[messageIndex] })
-        }
-        return
+        messagesList.splice(messageIndex, 1, updatedMessage)
+        console.log(`消息状态更新成功: ${tempMessageId || messageId} -> ${status}`)
+        return true
       }
     }
     
     console.warn(`未找到消息进行状态更新: messageId=${messageId}, tempMessageId=${tempMessageId}`)
+    return false
   }
 
   // 获取连接状态
