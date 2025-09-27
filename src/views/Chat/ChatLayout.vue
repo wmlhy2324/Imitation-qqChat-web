@@ -277,8 +277,23 @@ const handleSendMessage = async (messageData) => {
 const handleLoadMoreMessages = async (conversationId, beforeTime) => {
   try {
     messagesLoading.value = true
+    
+    // 获取当前最早的消息时间作为分页边界
+    const currentMessages = chatStore.messages.get(conversationId) || []
+    const oldestMessage = currentMessages.length > 0 ? currentMessages[0] : null
+    const endTime = oldestMessage ? oldestMessage.sendTime : beforeTime
+    
+    console.log('加载历史消息:', { 
+      conversationId, 
+      beforeTime, 
+      oldestMessageTime: oldestMessage?.sendTime,
+      endTime,
+      oldestMessageContent: oldestMessage?.msgContent
+    })
+    
     await chatStore.fetchMessages(conversationId, {
-      endSendTime: beforeTime,
+      startSendTime: 0, // 从最早开始
+      endSendTime: endTime - 1, // 比最早消息再早1ms，避免重复
       count: 20,
       prepend: true
     })

@@ -249,7 +249,13 @@ const shouldScrollToBottom = ref(true)
 // 计算属性
 const sortedMessages = computed(() => {
   const sorted = [...props.messages].sort((a, b) => a.sendTime - b.sendTime)
-  console.log('消息排序:', sorted.map(m => ({ id: m.id, sendTime: m.sendTime, content: m.msgContent })))
+  console.log('消息排序详情:', sorted.map(m => ({ 
+    id: m.id, 
+    sendTime: m.sendTime, 
+    timeStr: new Date(m.sendTime).toLocaleString(),
+    content: m.msgContent?.substring(0, 10) + '...',
+    isOwn: m.isOwn
+  })))
   return sorted
 })
 
@@ -259,15 +265,29 @@ const handleScroll = (event) => {
   
   // 检查是否滚动到顶部（用于加载更多）
   if (scrollTop === 0 && hasMore.value) {
+    console.log('滚动到顶部，触发历史消息加载')
     handleLoadMore()
   }
   
   // 检查是否应该自动滚动到底部
-  shouldScrollToBottom.value = scrollTop + clientHeight >= scrollHeight - 100
+  const nearBottom = scrollTop + clientHeight >= scrollHeight - 100
+  shouldScrollToBottom.value = nearBottom
+  
+  // 防止意外的滚动到顶部触发
+  if (scrollTop === 0 && scrollHeight > clientHeight) {
+    console.warn('检测到异常滚动到顶部')
+  }
 }
 
 const handleLoadMore = () => {
   if (props.loading || !hasMore.value) return
+  
+  // 记录当前滚动位置，用于历史消息加载后恢复位置
+  if (messagesContainer.value) {
+    const container = messagesContainer.value
+    window.lastScrollHeight = container.scrollHeight
+    window.lastScrollTop = container.scrollTop
+  }
   
   const oldestMessage = sortedMessages.value[0]
   if (oldestMessage) {
@@ -376,15 +396,59 @@ const getTypingText = () => {
   return ''
 }
 
-// 监听消息变化，自动滚动到底部
+// 监听消息变化，智能滚动处理
 watch(
   () => props.messages.length,
   (newLength, oldLength) => {
     console.log('消息数量变化:', { newLength, oldLength, shouldScrollToBottom: shouldScrollToBottom.value })
+    
     if (newLength > oldLength) {
-      // 新消息总是滚动到底部，不管当前滚动位置
       nextTick(() => {
-        scrollToBottom()
+        // 检查是否是加载历史消息（通过全局变量判断）
+        if (window.lastScrollHeight && window.lastScrollTop !== undefined) {
+          // 历史消息加载：保持相对滚动位置
+          const container = messagesContainer.value
+          if (container) {
+            const newScrollHeight = container.scrollHeight
+            const heightDiff = newScrollHeight - window.lastScrollHeight
+            const newScrollTop = window.lastScrollTop + heightDiff
+            
+            console.log('恢复滚动位置:', {
+              lastScrollHeight: window.lastScrollHeight,
+              newScrollHeight,
+              heightDiff,
+              lastScrollTop: window.lastScrollTop,
+              newScrollTop
+            })
+            
+            container.scrollTop = newScrollTop
+            
+            // 清理全局变量
+            delete window.lastScrollHeight
+            delete window.lastScrollTop
+          }
+        } else {
+          // 新消息：只有在接近底部时才自动滚动
+          const container = messagesContainer.value
+          if (container) {
+            const { scrollTop, scrollHeight, clientHeight } = container
+            const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100
+            
+            console.log('滚动决策:', {
+              scrollTop,
+              scrollHeight, 
+              clientHeight,
+              isNearBottom,
+              willScroll: isNearBottom
+            })
+            
+            if (isNearBottom) {
+              scrollToBottom()
+            } else {
+              console.log('用户不在底部，不自动滚动')
+            }
+          }
+        }
       })
     }
   }

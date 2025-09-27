@@ -96,7 +96,9 @@ class WebSocketManager {
       // 接收消息
       this.ws.onmessage = (event) => {
         try {
+          console.log('🔵 WebSocket原始消息接收:', event.data) // 添加原始数据日志
           const message = JSON.parse(event.data)
+          console.log('🟢 WebSocket解析后消息:', message) // 添加解析后日志
           this.handleMessage(message)
         } catch (error) {
           console.error('解析WebSocket消息失败:', error, event.data)
@@ -153,10 +155,23 @@ class WebSocketManager {
   handleDataMessage(message) {
     const { method, data } = message
     
+    console.log('处理数据消息:', { method, dataKeys: Object.keys(data || {}) })
+    
     switch (method) {
       case 'push':
         // 收到新消息推送
         this.handleNewMessage(data)
+        break
+      case '':
+      case null:
+      case undefined:
+        // 处理method为空的消息推送（后端可能发送空method）
+        if (data && (data.MsgId || data.Content)) {
+          console.log('处理空method的消息推送')
+          this.handleNewMessage(data)
+        } else {
+          console.log('未处理的空method消息:', data)
+        }
         break
       default:
         console.log('未处理的数据消息方法:', method, data)
@@ -167,8 +182,22 @@ class WebSocketManager {
   handleNewMessage(data) {
     console.log('收到新消息推送:', data)
     
+    // 兼容不同的数据格式
+    const msgData = {
+      msgId: data.MsgId || data.msgId,
+      conversationId: data.ConversationId || data.conversationId, 
+      sendId: data.SendId || data.sendId,
+      recvId: data.RecvId || data.recvId,
+      mType: data.MType !== undefined ? data.MType : data.mType,
+      content: data.Content || data.content,
+      chatType: data.ChatType || data.chatType,
+      sendTime: data.SendTime || data.sendTime
+    }
+    
+    console.log('标准化消息数据:', msgData)
+    
     // 判断是否是自己发送的消息
-    const isOwnMessage = data.sendId === this.userStore?.userId
+    const isOwnMessage = msgData.sendId === this.userStore?.userId
     
     // 获取发送者信息
     let senderInfo = null
@@ -181,32 +210,51 @@ class WebSocketManager {
       }
     } else {
       // 其他人发送的消息，从好友列表或群成员中查找
-      senderInfo = this.getSenderInfo(data.sendId)
+      senderInfo = this.getSenderInfo(msgData.sendId)
     }
     
     // 转换为前端消息格式
+    // 对于新消息，确保时间戳是合理的（不早于当前时间太多）
+    let adjustedSendTime = msgData.sendTime
+    const now = Date.now()
+    if (msgData.sendTime < now - 60000) { // 如果后端时间早于当前时间1分钟以上
+      console.warn('后端时间戳异常，使用当前时间:', {
+        backend: new Date(msgData.sendTime).toLocaleString(),
+        frontend: new Date(now).toLocaleString()
+      })
+      adjustedSendTime = now
+    }
+    
     const message = {
-      id: data.msgId,
-      conversationId: data.conversationId,
-      sendId: data.sendId,
-      recvId: data.recvId,
-      msgType: data.mType + 1, // 后端从0开始，前端从1开始
-      msgContent: data.content,
-      chatType: data.chatType,
-      sendTime: data.sendTime,
+      id: msgData.msgId,
+      conversationId: msgData.conversationId,
+      sendId: msgData.sendId,
+      recvId: msgData.recvId,
+      msgType: msgData.mType + 1, // 后端从0开始，前端从1开始
+      msgContent: msgData.content,
+      chatType: msgData.chatType,
+      sendTime: adjustedSendTime, // 使用调整后的时间戳
       status: 'delivered',
       isOwn: isOwnMessage,
-      contentParsed: data.content,
+      contentParsed: msgData.content,
       senderInfo: senderInfo
     }
     
     console.log('WebSocket接收消息 - 原始数据:', data)
+    console.log('WebSocket接收消息 - 标准化数据:', msgData)
     console.log('WebSocket接收消息 - 处理后消息:', message)
+    console.log('WebSocket接收消息 - 时间戳对比:', {
+      '后端时间': msgData.sendTime,
+      '后端时间格式化': new Date(msgData.sendTime).toLocaleString(),
+      '前端时间': Date.now(),
+      '前端时间格式化': new Date().toLocaleString(),
+      '时间差': Date.now() - msgData.sendTime
+    })
     console.log('WebSocket接收消息 - 是否自己发送:', isOwnMessage)
     console.log('WebSocket接收消息 - 发送者信息:', senderInfo)
     
     // 添加到聊天记录
-    this.chatStore.addMessage(data.conversationId, message)
+    this.chatStore.addMessage(msgData.conversationId, message)
   }
 
   // 获取发送者信息

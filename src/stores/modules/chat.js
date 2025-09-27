@@ -129,6 +129,12 @@ export const useChatStore = defineStore('chat', () => {
       const messageList = response.data.list || []
       
       console.log('API获取消息 - 原始数据示例:', messageList[0])
+      console.log('API获取消息 - 数据排序检查:', messageList.slice(0, 3).map(m => ({
+        id: m.id,
+        content: m.msgContent,
+        SendTime: m.SendTime,
+        timeStr: new Date(m.SendTime).toLocaleString()
+      })))
       
       // 转换消息格式
       const formattedMessages = messageList.map(msg => ({
@@ -154,17 +160,49 @@ export const useChatStore = defineStore('chat', () => {
       
       // 更新消息缓存
       if (options.prepend) {
-        // 历史消息，添加到前面
+        // 历史消息，添加到前面，避免重复
         const existingMessages = messages.value.get(conversationId) || []
-        messages.value.set(conversationId, [...formattedMessages, ...existingMessages])
+        
+        // 过滤掉已存在的消息，避免重复
+        const newMessages = formattedMessages.filter(newMsg => 
+          !existingMessages.some(existMsg => existMsg.id === newMsg.id)
+        )
+        
+        console.log('添加历史消息:', { 
+          new: newMessages.length, 
+          existing: existingMessages.length,
+          total: newMessages.length + existingMessages.length
+        })
+        
+        if (newMessages.length > 0) {
+          // 历史消息按时间升序排序后添加到前面
+          const sortedNewMessages = [...newMessages].sort((a, b) => a.sendTime - b.sendTime)
+          messages.value.set(conversationId, [...sortedNewMessages, ...existingMessages])
+        }
       } else {
-        // 新消息或重新获取
-        messages.value.set(conversationId, formattedMessages)
+        // 初次获取消息：后端返回的是降序，需要转为升序显示
+        const sortedMessages = [...formattedMessages].sort((a, b) => a.sendTime - b.sendTime)
+        console.log('初次获取消息排序:', {
+          '后端原始顺序（前3条）': formattedMessages.slice(0, 3).map(m => ({
+            content: m.msgContent,
+            timeStr: new Date(m.sendTime).toLocaleString()
+          })),
+          '前端排序后（前3条）': sortedMessages.slice(0, 3).map(m => ({
+            content: m.msgContent, 
+            timeStr: new Date(m.sendTime).toLocaleString()
+          })),
+          '前端排序后（后3条）': sortedMessages.slice(-3).map(m => ({
+            content: m.msgContent,
+            timeStr: new Date(m.sendTime).toLocaleString()
+          }))
+        })
+        messages.value.set(conversationId, sortedMessages)
       }
       
       // 更新会话的最后一条消息
       if (formattedMessages.length > 0) {
-        const lastMessage = formattedMessages[formattedMessages.length - 1]
+        // 注意：后端数据是降序的，第一条是最新消息
+        const lastMessage = formattedMessages[0]
         updateConversationLastMessage(conversationId, lastMessage)
       }
       
@@ -252,29 +290,68 @@ export const useChatStore = defineStore('chat', () => {
     const existingMessages = messages.value.get(conversationId) || []
     
     // 检查消息是否已存在（避免重复）
-    const messageExists = existingMessages.some(msg => msg.id === message.id)
-    if (messageExists) return
+    let existingMsgIndex = existingMessages.findIndex(msg => msg.id === message.id)
     
-    // 格式化消息
-    const formattedMessage = {
-      ...message,
-      senderInfo: null,
-      isOwn: false,
-      contentParsed: null
+    // 如果是自己发送的消息，可能需要更新临时消息
+    if (existingMsgIndex === -1 && message.isOwn) {
+      // 查找可能的临时消息（时间差在5秒内，内容相同）
+      existingMsgIndex = existingMessages.findIndex(msg => 
+        msg.id.startsWith('temp_') && 
+        msg.isOwn && 
+        Math.abs(msg.sendTime - message.sendTime) < 5000 &&
+        msg.msgContent === message.msgContent
+      )
+      
+      if (existingMsgIndex !== -1) {
+        console.log('找到对应的临时消息，进行更新:', {
+          tempId: existingMessages[existingMsgIndex].id,
+          newId: message.id
+        })
+      }
     }
     
-    // 填充发送者信息（同步）
-    enrichMessageSenderInfo([formattedMessage])
+    if (existingMsgIndex !== -1) {
+      // 更新现有消息
+      const existingMsg = existingMessages[existingMsgIndex]
+      const updatedMessage = {
+        ...existingMsg,
+        ...message,
+        // 保持原有时间戳，避免排序问题
+        sendTime: existingMsg.sendTime || message.sendTime,
+        status: 'delivered',
+        contentParsed: message.contentParsed || message.msgContent
+      }
+      
+      existingMessages[existingMsgIndex] = updatedMessage
+      console.log('更新现有消息:', updatedMessage.id)
+    } else {
+      console.log('添加新消息:', message)
+      
+      // 保持原有消息格式，不覆盖WebSocket已处理的字段
+      const formattedMessage = {
+        ...message,
+        // 确保contentParsed存在
+        contentParsed: message.contentParsed || message.msgContent
+      }
+      
+      // 只有当senderInfo缺失时才填充
+      if (!formattedMessage.senderInfo) {
+        enrichMessageSenderInfo([formattedMessage])
+      }
+      
+      // 添加到消息列表末尾（新消息在底部）
+      existingMessages.push(formattedMessage)
+      console.log('消息添加成功，当前消息数量:', existingMessages.length)
+    }
     
-    // 添加到消息列表
-    existingMessages.push(formattedMessage)
     messages.value.set(conversationId, existingMessages)
     
     // 更新会话的最后一条消息
-    updateConversationLastMessage(conversationId, formattedMessage)
+    const lastMessage = existingMessages[existingMessages.length - 1]
+    updateConversationLastMessage(conversationId, lastMessage)
     
     // 如果不是当前会话，增加未读数
-    if (conversationId !== currentConversationId.value && !formattedMessage.isOwn) {
+    if (conversationId !== currentConversationId.value && !message.isOwn) {
       const conversation = conversations.value.get(conversationId)
       if (conversation) {
         conversation.unread = (conversation.unread || 0) + 1
