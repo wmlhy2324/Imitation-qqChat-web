@@ -274,7 +274,7 @@ class WebSocketManager {
         }
       }
 
-      console.log('发送WebSocket消息:', wsMessage)
+      console.log('WebSocket发送消息:', wsMessage)
       
       // 发送消息
       this.ws.send(JSON.stringify(wsMessage))

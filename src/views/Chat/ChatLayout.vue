@@ -253,8 +253,6 @@ const handleSendMessage = async (messageData) => {
       msgType: 1 // 文本消息
     }
     
-    console.log('发送WebSocket消息:', wsMessageData)
-    
     // 通过WebSocket发送消息
     const success = wsManager.sendMessage(wsMessageData)
     
