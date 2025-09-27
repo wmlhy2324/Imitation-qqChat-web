@@ -130,6 +130,9 @@ class WebSocketManager {
       case FRAME_TYPE.DATA:
         this.handleDataMessage(message)
         break
+      case FRAME_TYPE.PING:
+        this.handlePingMessage(message)
+        break
       case FRAME_TYPE.ACK:
         this.handleAckMessage(message)
         break
@@ -224,13 +227,23 @@ class WebSocketManager {
     }
   }
 
+  // 处理心跳响应消息
+  handlePingMessage(message) {
+    console.log('收到心跳响应:', message)
+    // 心跳响应处理 - 保持连接活跃
+  }
+
   // 处理ACK确认消息
   handleAckMessage(message) {
     const pendingMessage = this.pendingMessages.get(message.id)
     if (pendingMessage) {
-      console.log('消息发送成功:', message.id)
+      console.log('消息ACK确认成功:', message.id)
       this.pendingMessages.delete(message.id)
-      // 可以更新消息状态为已发送
+      
+      // 更新UI中对应消息的状态为已送达
+      const tempMessageId = pendingMessage.tempMessageId
+      const tempTimestamp = pendingMessage.tempTimestamp
+      this.updateMessageStatus(message.id, 'delivered', tempMessageId, tempTimestamp)
     }
   }
 
@@ -282,8 +295,16 @@ class WebSocketManager {
       // 记录等待确认的消息
       this.pendingMessages.set(messageId, {
         ...wsMessage,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        tempMessageId: messageData.tempMessageId, // 使用传入的临时消息ID
+        tempTimestamp: messageData.tempTimestamp
       })
+
+      // NoAck模式：发送成功后直接更新状态为已发送
+      // 如果是OnlyAck或RigorAck模式，会在handleAckMessage中更新为delivered
+      setTimeout(() => {
+        this.updateMessageStatus(messageId, 'sent', messageData.tempMessageId, messageData.tempTimestamp)
+      }, 100) // 延迟100ms确保消息已添加到UI
 
       return true
     } catch (error) {
@@ -404,6 +425,50 @@ class WebSocketManager {
       clearInterval(this.heartbeatInterval)
       this.heartbeatInterval = null
     }
+  }
+
+  // 更新消息状态
+  updateMessageStatus(messageId, status, tempMessageId = null, tempTimestamp = null) {
+    if (!this.chatStore) return
+    
+    // 查找并更新消息状态
+    const conversations = this.chatStore.conversations
+    for (const [conversationId, conversation] of conversations) {
+      const messages = conversation.messages || []
+      
+      let messageIndex = -1
+      
+      // 优先通过临时消息ID精确匹配
+      if (tempMessageId) {
+        messageIndex = messages.findIndex(msg => msg.id === tempMessageId)
+      }
+      
+      // 如果没找到，尝试通过时间戳匹配
+      if (messageIndex === -1 && tempTimestamp) {
+        messageIndex = messages.findIndex(msg => 
+          msg.id.startsWith('temp_') && 
+          Math.abs(msg.sendTime - tempTimestamp) < 1000 // 1秒内的消息
+        )
+      }
+      
+      // 最后尝试通过WebSocket消息ID匹配（用于ACK场景）
+      if (messageIndex === -1) {
+        messageIndex = messages.findIndex(msg => msg.id === messageId)
+      }
+      
+      if (messageIndex !== -1) {
+        messages[messageIndex].status = status
+        console.log(`消息状态更新: ${tempMessageId || messageId} -> ${status}`)
+        
+        // 触发Vue响应式更新
+        if (conversation.messages) {
+          conversation.messages.splice(messageIndex, 1, { ...messages[messageIndex] })
+        }
+        return
+      }
+    }
+    
+    console.warn(`未找到消息进行状态更新: messageId=${messageId}, tempMessageId=${tempMessageId}`)
   }
 
   // 获取连接状态

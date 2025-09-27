@@ -214,16 +214,20 @@ const handleSendMessage = async (messageData) => {
       return
     }
     
+    // 生成临时消息ID和WebSocket消息ID
+    const tempTimestamp = Date.now()
+    const tempMessageId = `temp_${tempTimestamp}`
+    
     // 先在界面上显示消息（乐观更新）
     const tempMessage = {
-      id: `temp_${Date.now()}`,
+      id: tempMessageId,
       conversationId: messageData.conversationId,
       sendId: userStore.userId,
       recvId: currentConv.targetId,
       msgType: 1, // 文本消息
       msgContent: messageData.content || messageData.msgContent,
       chatType: currentConv.chatType,
-      sendTime: Date.now(),
+      sendTime: tempTimestamp,
       status: 'sending',
       isOwn: true,
       senderInfo: {
@@ -244,13 +248,15 @@ const handleSendMessage = async (messageData) => {
     
     chatStore.addMessage(messageData.conversationId, tempMessage)
     
-    // 构建WebSocket消息数据
+    // 构建WebSocket消息数据，包含临时消息ID用于关联
     const wsMessageData = {
       conversationId: messageData.conversationId,
       recvId: currentConv.targetId,
       chatType: currentConv.chatType,
       content: messageData.content || messageData.msgContent,
-      msgType: 1 // 文本消息
+      msgType: 1, // 文本消息
+      tempMessageId: tempMessageId, // 传递临时消息ID用于状态更新
+      tempTimestamp: tempTimestamp // 传递时间戳用于ID关联
     }
     
     // 通过WebSocket发送消息
@@ -260,10 +266,8 @@ const handleSendMessage = async (messageData) => {
       // WebSocket发送失败，更新消息状态
       tempMessage.status = 'failed'
       ElMessage.error('消息发送失败，请检查网络连接')
-    } else {
-      // 发送成功，更新消息状态
-      tempMessage.status = 'sent'
     }
+    // 注意：不在这里设置为sent，由WebSocket管理器处理状态更新
   } catch (error) {
     console.error('发送消息失败:', error)
     ElMessage.error('发送消息失败')
