@@ -248,7 +248,9 @@ const shouldScrollToBottom = ref(true)
 
 // 计算属性
 const sortedMessages = computed(() => {
-  return [...props.messages].sort((a, b) => a.sendTime - b.sendTime)
+  const sorted = [...props.messages].sort((a, b) => a.sendTime - b.sendTime)
+  console.log('消息排序:', sorted.map(m => ({ id: m.id, sendTime: m.sendTime, content: m.msgContent })))
+  return sorted
 })
 
 // 方法
@@ -311,6 +313,7 @@ const scrollToBottom = (smooth = true) => {
   nextTick(() => {
     if (messagesContainer.value) {
       const container = messagesContainer.value
+      console.log('滚动到底部:', { scrollHeight: container.scrollHeight, clientHeight: container.clientHeight })
       container.scrollTo({
         top: container.scrollHeight,
         behavior: smooth ? 'smooth' : 'auto'
@@ -320,13 +323,14 @@ const scrollToBottom = (smooth = true) => {
 }
 
 const shouldShowTimeDivider = (message, index) => {
-  if (index === 0) return true
+  // 第一条消息不显示时间分隔线，避免重复
+  if (index === 0) return false
   
   const currentTime = dayjs(message.sendTime)
   const prevTime = dayjs(sortedMessages.value[index - 1].sendTime)
   
-  // 如果时间差超过5分钟，显示时间分隔线
-  return currentTime.diff(prevTime, 'minute') > 5
+  // 如果时间差超过30分钟，显示时间分隔线（减少频率）
+  return currentTime.diff(prevTime, 'minute') > 30
 }
 
 const formatMessageTime = (timestamp) => {
@@ -376,8 +380,12 @@ const getTypingText = () => {
 watch(
   () => props.messages.length,
   (newLength, oldLength) => {
-    if (newLength > oldLength && shouldScrollToBottom.value) {
-      scrollToBottom()
+    console.log('消息数量变化:', { newLength, oldLength, shouldScrollToBottom: shouldScrollToBottom.value })
+    if (newLength > oldLength) {
+      // 新消息总是滚动到底部，不管当前滚动位置
+      nextTick(() => {
+        scrollToBottom()
+      })
     }
   }
 )
@@ -472,8 +480,7 @@ onMounted(() => {
       justify-content: flex-end;
       
       .message-item {
-        // 移除 flex-direction: row-reverse，让HTML结构自然显示
-        // HTML中自己的头像本来就在消息体后面（右边）
+        // 保持HTML结构：[消息体] [头像]
         
         .message-body {
           align-items: flex-end; // 消息内容右对齐
@@ -490,8 +497,18 @@ onMounted(() => {
           }
           
           .message-meta {
-            flex-direction: row-reverse; // 时间和状态靠右
+            flex-direction: row-reverse; // 时间和状态靠右对齐
+            justify-content: flex-start; // 确保内容对齐
+            
+            .message-time {
+              margin-left: 8px; // 时间与状态图标的间距
+            }
           }
+        }
+        
+        // 自己的头像样式微调
+        .message-avatar {
+          margin-left: 8px; // 头像与消息的间距
         }
       }
     }
@@ -521,18 +538,20 @@ onMounted(() => {
 .message-item {
   display: flex;
   gap: 8px;
-  align-items: flex-start;
+  align-items: flex-end; // 改为底部对齐，让头像与消息气泡底部对齐
+  max-width: 80%; // 限制整个消息项的最大宽度
 }
 
 .message-avatar {
   flex-shrink: 0;
+  margin-bottom: 2px; // 微调头像位置，与消息时间对齐
 }
 
 .message-body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  max-width: 60%;
+  max-width: calc(100% - 44px); // 减去头像宽度和gap
   min-width: 0;
 }
 
@@ -616,16 +635,20 @@ onMounted(() => {
 .message-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px; // 减小间距
   margin-top: 4px;
   padding: 0 4px;
   
   .message-time {
     font-size: 11px;
     color: var(--text-placeholder);
+    white-space: nowrap; // 防止时间换行
   }
   
   .message-status {
+    display: flex;
+    align-items: center;
+    
     .el-icon {
       font-size: 12px;
       
