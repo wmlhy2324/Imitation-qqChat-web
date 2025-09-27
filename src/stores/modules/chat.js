@@ -128,22 +128,26 @@ export const useChatStore = defineStore('chat', () => {
       
       const messageList = response.data.list || []
       
+      console.log('API获取消息 - 原始数据示例:', messageList[0])
+      
       // 转换消息格式
       const formattedMessages = messageList.map(msg => ({
         id: msg.id,
         conversationId: msg.conversationId,
         sendId: msg.sendId,
         recvId: msg.recvId,
-        msgType: msg.msgType, // 1: 文本, 2: 图片, 3: 文件等
+        msgType: msg.msgType + 1, // 后端从0开始，前端从1开始（与WebSocket保持一致）
         msgContent: msg.msgContent,
         chatType: msg.chatType,
-        sendTime: msg.sendTime,
+        sendTime: msg.SendTime || msg.sendTime, // 优先使用SendTime（后端字段），fallback到sendTime
         // 扩展字段
         status: 'sent', // sent, delivered, read
         senderInfo: null, // 发送者信息，稍后填充
         isOwn: false, // 是否是自己发送的消息
         contentParsed: null // 解析后的内容（如JSON）
       }))
+      
+      console.log('API获取消息 - 转换后示例:', formattedMessages[0])
       
       // 填充发送者信息
       await enrichMessageSenderInfo(formattedMessages)
