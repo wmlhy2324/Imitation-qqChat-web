@@ -467,11 +467,16 @@ onMounted(() => {
     margin-bottom: 16px;
     
     &.is-own {
+      // 整个消息容器靠右对齐
+      display: flex;
+      justify-content: flex-end;
+      
       .message-item {
-        flex-direction: row-reverse;
+        // 移除 flex-direction: row-reverse，让HTML结构自然显示
+        // HTML中自己的头像本来就在消息体后面（右边）
         
         .message-body {
-          align-items: flex-end;
+          align-items: flex-end; // 消息内容右对齐
           
           .message-content {
             background: var(--primary-color);
@@ -485,10 +490,16 @@ onMounted(() => {
           }
           
           .message-meta {
-            flex-direction: row-reverse;
+            flex-direction: row-reverse; // 时间和状态靠右
           }
         }
       }
+    }
+    
+    // 别人的消息（默认靠左）
+    &:not(.is-own) {
+      display: flex;
+      justify-content: flex-start;
     }
   }
 }
