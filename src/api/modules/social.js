@@ -96,5 +96,30 @@ export const socialApi = {
   // 踢出群成员
   removeFromGroup: (groupId, userId) => {
     return request.delete(`/v1/social/groups/${groupId}/members/${userId}`)
+  },
+
+  // 申请加群
+  joinGroupRequest: (requestData) => {
+    const payload = {
+      group_id: requestData.groupId,
+      req_msg: requestData.reqMsg || requestData.message,
+      req_time: requestData.reqTime || Date.now()
+    }
+    console.log('Social API: 发送申请加群请求到', '/v1/social/group/putIn', '数据:', payload)
+    
+    return request.post('/v1/social/group/putIn', payload)
+  },
+
+  // 获取群组申请列表
+  getGroupRequests: () => {
+    return request.get('/v1/social/group/putIns')
+  },
+
+  // 处理群组申请
+  handleGroupRequest: (requestData) => {
+    return request.put('/v1/social/group/putIn', {
+      group_req_id: requestData.groupReqId,
+      handle_result: requestData.handleResult // 1-同意，2-拒绝
+    })
   }
 }

@@ -16,14 +16,21 @@
           </div>
         </div>
         <div class="header-actions">
-          <el-tooltip content="添加好友">
-            <el-button 
-              :icon="Plus" 
-              size="small" 
-              circle 
-              @click="showAddFriendDialog"
-            />
-          </el-tooltip>
+          <el-dropdown trigger="click" @command="handleAddCommand">
+            <el-button :icon="Plus" size="small" circle />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="add-friend">
+                  <el-icon><UserFilled /></el-icon>
+                  <span>添加好友</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="join-group">
+                  <el-icon><ChatDotSquare /></el-icon>
+                  <span>申请加群</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <el-tooltip content="创建群组">
             <el-button 
               :icon="UserFilled" 
@@ -106,6 +113,12 @@
       v-model="createGroupVisible"
       @success="handleCreateGroupSuccess"
     />
+
+    <!-- 申请加群对话框 -->
+    <JoinGroupDialog 
+      v-model="joinGroupVisible"
+      @success="handleJoinGroupSuccess"
+    />
     
     <!-- 搜索对话框 -->
     <SearchDialog 
@@ -124,7 +137,8 @@ import {
   Plus, 
   UserFilled, 
   More, 
-  Search 
+  Search,
+  ChatDotSquare 
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/modules/user'
 import { useChatStore } from '@/stores/modules/chat'
@@ -137,6 +151,7 @@ import ChatWelcome from '@/components/Chat/ChatWelcome.vue'
 import ContactPanel from '@/components/Chat/ContactPanel.vue'
 import AddFriendDialog from '@/components/Social/AddFriendDialog.vue'
 import CreateGroupDialog from '@/components/Social/CreateGroupDialog.vue'
+import JoinGroupDialog from '@/components/Social/JoinGroupDialog.vue'
 import SearchDialog from '@/components/Chat/SearchDialog.vue'
 
 const router = useRouter()
@@ -148,6 +163,7 @@ const searchKeyword = ref('')
 const showContactPanel = ref(false)
 const addFriendVisible = ref(false)
 const createGroupVisible = ref(false)
+const joinGroupVisible = ref(false)
 const searchVisible = ref(false)
 const messagesLoading = ref(false)
 
@@ -306,11 +322,18 @@ const handleLoadMoreMessages = async (conversationId, beforeTime) => {
 }
 
 const showAddFriendDialog = () => {
+  console.log('显示添加好友对话框，设置 addFriendVisible 为 true')
   addFriendVisible.value = true
 }
 
 const showCreateGroupDialog = () => {
+  console.log('显示创建群组对话框，设置 createGroupVisible 为 true')
   createGroupVisible.value = true
+}
+
+const showJoinGroupDialog = () => {
+  console.log('显示申请加群对话框，设置 joinGroupVisible 为 true')
+  joinGroupVisible.value = true
 }
 
 const handleAddFriendSuccess = () => {
@@ -320,6 +343,11 @@ const handleAddFriendSuccess = () => {
 
 const handleCreateGroupSuccess = () => {
   // 刷新群组列表和会话列表
+  chatStore.fetchConversations()
+}
+
+const handleJoinGroupSuccess = () => {
+  // 刷新会话列表
   chatStore.fetchConversations()
 }
 
@@ -370,6 +398,20 @@ const handleRouteNavigation = async (queryParams) => {
     router.replace({ name: 'ChatLayout' })
   } catch (error) {
     console.error('处理路由导航失败:', error)
+  }
+}
+
+const handleAddCommand = (command) => {
+  console.log('handleAddCommand 被调用，命令:', command)
+  switch (command) {
+    case 'add-friend':
+      console.log('显示添加好友对话框')
+      showAddFriendDialog()
+      break
+    case 'join-group':
+      console.log('显示申请加群对话框')
+      showJoinGroupDialog()
+      break
   }
 }
 
